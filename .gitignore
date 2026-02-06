@@ -1,0 +1,22 @@
+# Build output
+/build/
+/dist/
+*.o
+*.obj
+
+# Node modules (if applicable)
+node_modules/
+package-lock.json
+yarn.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment
+.env
+.env.local

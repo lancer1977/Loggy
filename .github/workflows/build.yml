@@ -1,0 +1,54 @@
+name: Build
+
+on:
+  push:
+    branches: [ main, master ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      PACKAGE_VERSION: ""
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Resolve package version from tag
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG#v}"
+          echo "PACKAGE_VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Restore
+        run: dotnet restore Loggy.sln
+
+      - name: Build
+        run: dotnet build Loggy.sln --no-restore -c Release
+
+      - name: Pack
+        run: |
+          PACK_ARGS=""
+          if [ -n "$PACKAGE_VERSION" ]; then
+            PACK_ARGS="/p:PackageVersion=$PACKAGE_VERSION"
+          fi
+          dotnet pack src/Loggy.csproj --no-build -c Release -o build/artifacts $PACK_ARGS
+
+      - name: Publish (NuGet)
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: dotnet nuget push "build/artifacts/*.nupkg" -k "$NUGET_API_KEY" -s https://api.nuget.org/v3/index.json --skip-duplicate
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
