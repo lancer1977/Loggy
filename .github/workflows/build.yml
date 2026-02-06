@@ -39,7 +39,7 @@ jobs:
           if [ -n "$PACKAGE_VERSION" ]; then
             PACK_ARGS="/p:PackageVersion=$PACKAGE_VERSION"
           fi
-          dotnet pack src/Loggy.csproj --no-build -c Release -o build/artifacts $PACK_ARGS
+          dotnet pack src/PolyhydraGames.Loggy.csproj --no-build -c Release -o build/artifacts $PACK_ARGS
 
       - name: Publish (NuGet)
         if: startsWith(github.ref, 'refs/tags/')
