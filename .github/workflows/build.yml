@@ -6,7 +6,8 @@ on:
     tags: [ 'v*' ]
   pull_request:
     branches: [ main, master ]
-
+permissions:
+  contents: write   # required to create releases + generate release notes
 jobs:
   build:
     runs-on: ubuntu-latest
