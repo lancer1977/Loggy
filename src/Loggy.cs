@@ -185,8 +185,16 @@ public static class Loggy
                 return;
             }
 
-            var arg = args.Length == 0 ? message : string.Format(message, args);
-            Information(_log, Id, _name, arg);
+            var template = $"■ {{Name}} [{{LoggyId}}] {message}";
+            var allArgs = new object?[args.Length + 2];
+            allArgs[0] = _name;
+            allArgs[1] = Id.Value;
+            if (args.Length > 0)
+            {
+                Array.Copy(args, 0, allArgs, 2, args.Length);
+            }
+
+            _log.LogInformation(new EventId(1004, nameof(InfoMessage)), template, allArgs);
         }
 
         public void LogWarning(string onChannelChatMessageLogFailed)
@@ -196,7 +204,9 @@ public static class Loggy
                 return;
             }
 
-            Warning(_log, Id, _name, null, onChannelChatMessageLogFailed);
+            var template = $"■ {{Name}} [{{LoggyId}}] {onChannelChatMessageLogFailed}";
+            var allArgs = new object?[] { _name, Id.Value };
+            _log.LogWarning(new EventId(1005, nameof(WarningMessage)), template, allArgs);
         }
 
         public void LogWarning(Exception exception, string onChannelChatMessageLogFailed)
@@ -206,7 +216,9 @@ public static class Loggy
                 return;
             }
 
-            Warning(_log, Id, _name, exception, onChannelChatMessageLogFailed);
+            var template = $"■ {{Name}} [{{LoggyId}}] {onChannelChatMessageLogFailed}";
+            var allArgs = new object?[] { _name, Id.Value };
+            _log.LogWarning(new EventId(1005, nameof(WarningMessage)), exception, template, allArgs);
         }
 
         public void LogCritical(Exception exception, string onChannelChatMessageLogFailed)
@@ -216,12 +228,14 @@ public static class Loggy
                 return;
             }
 
-            if (!IsEnabled(_log, LogLevel.Critical))
-            {
-                return;
-            }
-
-            Critical(_log, Id, _name, exception, onChannelChatMessageLogFailed);
+            var template = $"■ {{Name}} [{{LoggyId}}] {onChannelChatMessageLogFailed}";
+            var allArgs = new object?[] { _name, Id.Value };
+            _log.LogCritical(
+                new EventId(1006, nameof(CriticalMessage)),
+                exception,
+                template,
+                allArgs
+            );
         }
     }
 }
