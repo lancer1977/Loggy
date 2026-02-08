@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Logging;
 
@@ -45,6 +46,12 @@ public static class Loggy
         LoggerMessage.Define<string, Guid, string>(
             LogLevel.Critical,
             new EventId(1006, nameof(CriticalMessage)),
+            "■ {Name} [{LoggyId}] {message}"
+        );
+    private static readonly Action<ILogger, string, Guid, string, Exception?> TraceMessage =
+        LoggerMessage.Define<string, Guid, string>(
+            LogLevel.Trace,
+            new EventId(1007, nameof(TraceMessage)),
             "■ {Name} [{LoggyId}] {message}"
         );
 
@@ -96,13 +103,7 @@ public static class Loggy
         InfoMessage(log!, name, id.Value, message, null);
     }
 
-    private static void Warning(
-        ILogger? log,
-        LoggyId id,
-        string name,
-        Exception? ex,
-        string message
-    )
+    private static void Warning(ILogger? log, LoggyId id, string name, Exception? ex, string message)
     {
         if (!IsEnabled(log, LogLevel.Warning))
         {
@@ -112,13 +113,7 @@ public static class Loggy
         WarningMessage(log!, name, id.Value, message, ex);
     }
 
-    private static void Critical(
-        ILogger? log,
-        LoggyId id,
-        string name,
-        Exception ex,
-        string message
-    )
+    private static void Critical(ILogger? log, LoggyId id, string name, Exception ex, string message)
     {
         if (!IsEnabled(log, LogLevel.Critical))
         {
@@ -128,11 +123,17 @@ public static class Loggy
         CriticalMessage(log!, name, id.Value, message, ex);
     }
 
-    public static LoggyScope LoggyStart(
-        this ILogger log,
-        object? args = null,
-        [CallerMemberName] string caller = ""
-    ) => new(log, caller, args);
+    private static void Trace(ILogger? log, LoggyId id, string name, string message)
+    {
+        if (!IsEnabled(log, LogLevel.Trace))
+        {
+            return;
+        }
+
+        TraceMessage(log!, name, id.Value, message, null);
+    }
+
+    public static LoggyScope LoggyStart(this ILogger log, object? args = null, [CallerMemberName] string caller = "") => new(log, caller, args);
 
     public static LoggyScope LoggyStart(this ILogger? log, string name, object? args = null)
     {
@@ -172,70 +173,60 @@ public static class Loggy
         }
 
         public void Dispose() => End();
-
-        public void LogInformation(string message, params object?[] args)
+ 
+        public void WithInformation(string message)
         {
             if (_log is null)
             {
                 return;
             }
 
-            if (!IsEnabled(_log, LogLevel.Information))
-            {
-                return;
-            }
-
-            var template = $"■ {{Name}} [{{LoggyId}}] {message}";
-            var allArgs = new object?[args.Length + 2];
-            allArgs[0] = _name;
-            allArgs[1] = Id.Value;
-            if (args.Length > 0)
-            {
-                Array.Copy(args, 0, allArgs, 2, args.Length);
-            }
-
-            _log.LogInformation(new EventId(1004, nameof(InfoMessage)), template, allArgs);
+            Information(_log, Id, _name, message);
         }
 
-        public void LogWarning(string onChannelChatMessageLogFailed)
+        public void WithException(Exception exception, string message, bool isCritical)
         {
             if (_log is null)
             {
                 return;
             }
 
-            var template = $"■ {{Name}} [{{LoggyId}}] {onChannelChatMessageLogFailed}";
-            var allArgs = new object?[] { _name, Id.Value };
-            _log.LogWarning(new EventId(1005, nameof(WarningMessage)), template, allArgs);
+            if (isCritical)
+            {
+                Critical(_log, Id, _name, exception, message);
+            }
+            else
+            {
+                Warning(_log, Id, _name, exception, message);
+            }
         }
 
-        public void LogWarning(Exception exception, string onChannelChatMessageLogFailed)
+        public void WithTrace(string message)
         {
             if (_log is null)
             {
                 return;
             }
 
-            var template = $"■ {{Name}} [{{LoggyId}}] {onChannelChatMessageLogFailed}";
-            var allArgs = new object?[] { _name, Id.Value };
-            _log.LogWarning(new EventId(1005, nameof(WarningMessage)), exception, template, allArgs);
+            Trace(_log, Id, _name, message);
         }
 
-        public void LogCritical(Exception exception, string onChannelChatMessageLogFailed)
+        private static string BuildMessage(string message, object?[] args)
         {
-            if (_log is null)
+            if (args.Length == 0)
             {
-                return;
+                return message;
             }
 
-            var template = $"■ {{Name}} [{{LoggyId}}] {onChannelChatMessageLogFailed}";
-            var allArgs = new object?[] { _name, Id.Value };
-            _log.LogCritical(
-                new EventId(1006, nameof(CriticalMessage)),
-                exception,
-                template,
-                allArgs
-            );
+            try
+            {
+                return string.Format(CultureInfo.InvariantCulture, message, args);
+            }
+            catch (FormatException)
+            {
+                var renderedArgs = Array.ConvertAll(args, arg => arg?.ToString() ?? "null");
+                return $"{message} {string.Join(", ", renderedArgs)}";
+            }
         }
     }
 }
